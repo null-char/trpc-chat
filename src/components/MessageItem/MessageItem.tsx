@@ -16,6 +16,7 @@ const TIMESTAMP_UPDATE_INTERVAL = 60 * 1000;
 
 export const MessageItem: React.FC<MessageItemProps> = (props) => {
   const { message, loading } = props;
+  const [imageLoaded, setImageLoaded] = React.useState(false);
 
   const formatTimestamp = (timestamp: Date) => {
     const now = dayjs(Date.now());
@@ -52,35 +53,55 @@ export const MessageItem: React.FC<MessageItemProps> = (props) => {
     deleteMessage.mutate({ id: message.id });
   };
 
+  const onImageLoad = () => {
+    setImageLoaded(true);
+  };
+
+  const aspectRatio = (message.imageWidth ?? 1) / (message.imageHeight ?? 1);
+
   return (
     <div
-      className={`group relative mr-3 flex w-fit max-w-prose flex-col space-y-1 break-words rounded-md bg-background-secondary p-2 ${
-        loading && "opacity-50"
-      }`}
+      className={`group relative mr-3 flex w-fit max-w-prose flex-col space-y-1 break-words rounded-md bg-background-secondary p-2 ${loading && "opacity-50"
+        }`}
     >
-      <div className="flex flex-col space-y-2">
+      <div className="flex w-full flex-col space-y-2">
         <p className="whitespace-pre-wrap text-white">{message.text}</p>
 
         {message.imageUrl && (
-          <img
-            className="max-h-[300px] max-w-full  rounded-md object-contain"
-            src={message.imageUrl}
-          />
+          <>
+            {!imageLoaded && (
+              <div
+                className="flex max-h-72 max-w-full items-center justify-center rounded-md"
+                style={{
+                  aspectRatio,
+                  height: message.imageHeight ?? undefined,
+                }}
+              >
+                <p className="text-center text-white">Loading image...</p>
+              </div>
+            )}
+            <img
+              className={`max-h-72 max-w-fit rounded-md object-contain object-left ${!imageLoaded && "hidden"
+                }`}
+              onLoad={onImageLoad}
+              src={message.imageUrl}
+            />
+          </>
         )}
       </div>
 
       {!loading && (
-        <>
-          <div
-            className="absolute -right-2 -top-4 hidden w-fit cursor-pointer rounded-full bg-background p-0 group-hover:block"
-            onClick={onDelete}
-          >
-            <XCircle width={20} height={20} color="white" />
-          </div>
-
-          <p className="text-xs text-white opacity-60">{timestamp}</p>
-        </>
+        <div
+          className="absolute -right-2 -top-4 hidden w-fit cursor-pointer rounded-full bg-background p-0 group-hover:block"
+          onClick={onDelete}
+        >
+          <XCircle width={20} height={20} color="white" />
+        </div>
       )}
+
+      <p className="text-xs text-white opacity-60">
+        {loading ? "Sending..." : timestamp}
+      </p>
     </div>
   );
 };

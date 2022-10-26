@@ -14,5 +14,7 @@ model Msg {
   id         String @id @db.ObjectId @map("_id") @default(auto())
   text       String
   hasImage   Boolean
+  imageHeight Int?
+  imageWidth Int?
   timestamp  DateTime
 }

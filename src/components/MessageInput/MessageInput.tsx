@@ -2,28 +2,15 @@ import React from "react";
 import Paperclip from "public/icons/paperclip.svg";
 import XCircle from "public/icons/x-circle.svg";
 import { trpc } from "~/utils/trpc";
+import { QueuedMessages } from "~/state/queuedMessages";
+import * as fileUtils from "~/utils/file";
 import { Message } from "~/types";
 
-const readFile = (file: File) => {
-  return new Promise<string | undefined>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
-};
-
-interface MessageInputProps {
-  setQueuedMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-}
-
-export const MessageInput: React.FC<MessageInputProps> = ({
-  setQueuedMessages,
-}) => {
+export const MessageInput: React.FC = () => {
   const [text, setText] = React.useState("");
-  const [file, setFile] = React.useState<File | undefined>();
-  const [previewUrl, setPreviewUrl] = React.useState<string | undefined>();
+  const [image, setImage] = React.useState<File | undefined>();
+  const [imageUrl, setImageUrl] = React.useState<string | undefined>();
+  const queuedMessages = QueuedMessages.useContainer();
 
   const utils = trpc.useContext();
   const addMessage = trpc.msg.add.useMutation();
@@ -31,43 +18,43 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const onAddMessage = async () => {
     const data: Parameters<typeof addMessage.mutateAsync>[0] = {
       text: text.trimStart(),
-      hasImage: !!file,
     };
+    if (image && imageUrl) {
+      const { height, width } = await fileUtils.getImgDimensions(imageUrl);
+
+      // hasImage is redundant information at this point
+      data.hasImage = true;
+      data.imageDimensions = {
+        height,
+        width,
+      };
+    }
 
     if (data.text.length) {
       resetForm();
       // Should be random enough
       const tempId = `${Date.now() + Math.random()}`;
-      setQueuedMessages((queuedMessages) => {
-        return [
-          ...queuedMessages,
-          {
-            id: tempId,
-            imageUrl: previewUrl,
-            timestamp: new Date(),
-            text: data.text,
-            hasImage: !!data.hasImage,
-          },
-        ];
-      });
+      queuedMessages.add({
+        id: tempId,
+        imageUrl: imageUrl,
+        timestamp: new Date(),
+        ...data,
+      } as Message);
 
       try {
         const { message, uploadUrl } = await addMessage.mutateAsync(data);
 
         if (uploadUrl) {
-          await fetch(uploadUrl, { method: "PUT", body: file });
-          resetFile();
+          await fetch(uploadUrl, { method: "PUT", body: image });
         }
 
         const allMessages = utils.msg.list.getData();
         if (!allMessages) return;
-        setQueuedMessages((queuedMessages) =>
-          queuedMessages.filter((message) => message.id !== tempId)
-        );
+        queuedMessages.remove(tempId);
         utils.msg.list.setData([
           ...allMessages,
           // Load from device for now
-          { ...message, imageUrl: previewUrl },
+          { ...message, imageUrl: imageUrl },
         ]);
       } catch (error) {
         console.log("Send message failed:", error);
@@ -77,28 +64,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const readUploadedImage = async (file: File | undefined) => {
     if (file) {
-      const dataUrl = await readFile(file);
-      if (dataUrl) setPreviewUrl(dataUrl);
+      const dataUrl = await fileUtils.read(file);
+      if (dataUrl) setImageUrl(dataUrl);
     }
   };
 
-  React.useEffect(() => {
-    readUploadedImage(file);
-  }, [file]);
-
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.currentTarget.files;
-    if (files && files.length) setFile(files[0]);
+    if (files && files.length) {
+      const file = files[0];
+      setImage(file);
+      readUploadedImage(file);
+    }
   };
 
   const resetForm = () => {
     setText("");
-    resetFile();
+    resetImage();
   };
 
-  const resetFile = () => {
-    setFile(undefined);
-    setPreviewUrl(undefined);
+  const resetImage = () => {
+    setImage(undefined);
+    setImageUrl(undefined);
   };
 
   const onTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,16 +100,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   return (
     <div className="flex w-full flex-col space-y-2 rounded-md bg-background-secondary py-3">
-      {previewUrl && (
+      {imageUrl && (
         <div className="w-full border-b border-background px-3 pb-2">
           <div className="group relative w-fit rounded-lg bg-background p-2">
             <img
               className="h-80 w-80 object-contain"
-              src={previewUrl}
+              src={imageUrl}
               alt="image preview"
             />
             <XCircle
-              onClick={resetFile}
+              onClick={resetImage}
               className="absolute right-1 top-1 hidden cursor-pointer drop-shadow-lg group-hover:block"
               width={30}
               height={30}
@@ -130,7 +117,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             />
 
             <p className="mt-3 w-80 truncate text-sm text-white">
-              {file?.name}
+              {image?.name}
             </p>
           </div>
         </div>
@@ -143,7 +130,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         >
           <Paperclip width={20} height={20} color="white" />
           <input
-            key={previewUrl} // Bit of a hack. Re-renders input to reset file input
+            key={imageUrl} // Bit of a hack. Re-renders input to reset file input
             onChange={onFileChange}
             className="hidden"
             type="file"

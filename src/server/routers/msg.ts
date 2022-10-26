@@ -35,6 +35,12 @@ export const msgRouter = router({
       z.object({
         text: z.string().trim().min(1),
         hasImage: z.optional(z.boolean()),
+        imageDimensions: z.optional(
+          z.object({
+            height: z.number(),
+            width: z.number(),
+          })
+        ),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -43,6 +49,8 @@ export const msgRouter = router({
           hasImage: !!input.hasImage,
           text: input.text,
           timestamp: new Date(),
+          imageHeight: input.imageDimensions?.height,
+          imageWidth: input.imageDimensions?.width,
         },
       });
 

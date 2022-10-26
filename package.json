@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start"
   },
   "dependencies": {
@@ -22,6 +22,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "superjson": "^1.10.1",
+    "unstated-next": "^1.1.0",
     "zod": "^3.0.0"
   },
   "devDependencies": {
@@ -29,6 +30,7 @@
     "@types/react": "^18.0.9",
     "@types/react-dom": "^18.0.5",
     "autoprefixer": "^10.4.12",
+    "eslint": "^8.26.0",
     "postcss": "^8.4.18",
     "prettier": "^2.7.1",
     "prettier-plugin-tailwindcss": "^0.1.13",
